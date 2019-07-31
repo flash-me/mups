@@ -22,7 +22,4 @@ export interface IndexedMarker {
   idx: number;
 }
 
-export interface MarkerFnPair {
-  marker: string;
-  fn: (content: string, param?: string) => string;
-}
+export type MarkerFunction = (content: string, param?: string) => string;

@@ -1,140 +1,170 @@
-import {DocPart, DocType, IndexedMarker, MarkerFnPair} from './models';
+import { DocPart, DocType, IndexedMarker, MarkerFunction } from './models';
 
 export class MarkupEngine {
-	constructor(
-		private blockMarker: string          = '|||',
-		private lineH: Array<MarkerFnPair>   = [],
-		private inlineH: Array<MarkerFnPair> = []
-	) {
-	}
+  public static LineMarkerFnMap = new Map<string, MarkerFunction>();
+  public static InlineMarkerFnMap = new Map<string, MarkerFunction>();
+  public static BlockMarker = '|||';
 
-	public render(fullDoc: string) {
-		let parts = MarkupEngine.splitToParts(fullDoc);
-		if (parts.length > 1) {
-			parts = MarkupEngine.parseBlocks(parts, this.blockMarker);
-		}
-		parts = MarkupEngine.parseLines(parts, this.lineH);
-		parts = MarkupEngine.unifyRaw(parts);
-		parts = this.parseInline(parts);
-		return parts;
-	}
+  private constructor() { }
 
-	public static splitToParts(fullDoc: string): Array<DocPart> {
-		return fullDoc.split('\n').map(l => ({value: l, kind: DocType.Raw}));
-	}
+  public static render(fullDoc: string) {
+    let parts = MarkupEngine.splitToParts(fullDoc);
+    if (parts.length > 1) {
+      parts = MarkupEngine.parseBlocks(parts, MarkupEngine.BlockMarker);
+    }
+    parts = MarkupEngine.parseLines(parts);
+    parts = MarkupEngine.unifyRaw(parts);
+    parts = MarkupEngine.ParseInline(parts);
+    return parts;
+  }
 
-	public static parseBlocks(parts: Array<DocPart>, marker: string) {
-		let first: number = NaN,
-		    result: Array<DocPart> = [];
+  public static splitToParts(fullDoc: string): Array<DocPart> {
+    return fullDoc.split('\n').map(l => ({ value: l, kind: DocType.Raw }));
+  }
 
-		for (let i = 0; i < parts.length; i++) {
-			let val = parts[i].value;
+  public static parseBlocksRegex(text: string, marker: string) {
+    const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\n${escapedMarker}( .*)?\n((.|\n)*?)${escapedMarker}`, 'g');
+    const matches = [...text.matchAll(regex)];
 
-			if (val.startsWith(marker) && (val.charAt(marker.length) === ' ' || val.length === marker.length)) {
+    if (matches.length < 1) { return text; }
 
-				if (!first) {
-					result.push(parts[i]);
-					first = -1;
-				} else {
-					const section = result.splice(first);
-					const params = section.shift()!.value.split(' ', 2)[1];
-					const value = section.map(p => p.value).join('\n');
+    let result = text.substring(0, matches[0].index);
 
-					result.push({value, params, kind: DocType.Block});
-					first = NaN;
-				}
+    for (let i = 0; i < matches.length; i++) {
+      let cur = matches[i];
+      if (i > 0) {
+        let before = matches[i - 1];
+        result += text.substring(before.index! + before[0].length, cur.index!);
+      }
+      if (cur[1]) {
+        console.log('FOUND PARAMS: ', cur[1].trimLeft())
+      }
+      if (cur[2]) {
+        result += cur[2];
+        console.log('FOUND block: ', cur[2])
+      }
+    }
 
-			} else {
-				result.push(parts[i]);
-				first--;
-			}
-		}
-		return result;
-	}
+    result += text.substring(matches[matches.length - 1].length);
+    return result;
+  }
 
-	public static parseLines(parts: Array<DocPart>, handler: Array<MarkerFnPair>): Array<DocPart> {
-		return parts.map(part => {
-			const found = handler.find(h => part.kind === DocType.Raw && part.value.startsWith(`${h.marker} `));
-			if (!found) { return part; }
-			const strBetween = part.value.substring(found.marker.length + 1);
-			return {value: found.fn(strBetween), kind: DocType.Line};
-		});
-	}
+  public static parseBlocks(parts: Array<DocPart>, marker: string) {
+    let first: number = NaN,
+      result: Array<DocPart> = [];
 
-	public static unifyRaw(parts: Array<DocPart>): Array<DocPart> {
-		if (parts.length < 2) { return parts; }
+    for (let i = 0; i < parts.length; i++) {
+      let val = parts[i].value;
 
-		let result: Array<DocPart> = [];
-		result.push(parts.shift()!);
+      if (val.startsWith(marker) && (val.charAt(marker.length) === ' ' || val.length === marker.length)) {
 
-		for (let part of parts) {
-			let last = result[result.length - 1];
-			if (part.kind === DocType.Raw &&
-			    last.kind === DocType.Raw) {
-				last.value += `\n${part.value}`;
-			} else {
-				result.push(part);
-			}
-		}
-		return result;
-	}
+        if (!first) {
+          result.push(parts[i]);
+          first = -1;
+        } else {
+          const section = result.splice(first);
+          const params = section.shift()!.value.split(' ', 2)[1];
+          const value = section.map(p => p.value).join('\n');
 
-	private parseInline(parts: Array<DocPart>) {
-		const regex = MarkupEngine.GenRegexFromMarker(...this.inlineH.map(h => h.marker));
-		return parts.map(p => {
-			if (p.kind === DocType.Block) { return p; }
-			const matches = MarkupEngine.getAllMatches(p.value, regex);
-			return {value: this.InlineText(p.value, matches), kind: p.kind};
-		});
-	}
+          result.push({ value, params, kind: DocType.Block });
+          first = NaN;
+        }
 
-	public static getAllMatches(text: string, regex: RegExp): Array<IndexedMarker> {
-		return Array.from(text.matchAll(regex), v => ({marker: v[0], idx: v.index!}));
-	}
+      } else {
+        result.push(parts[i]);
+        first--;
+      }
+    }
+    return result;
+  }
 
-	public static GenRegexFromMarker(...marker: string[]): RegExp {
-		// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping
-		const sanitizedMarker = marker.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-		// create single regex by joining the marker
-		return new RegExp(sanitizedMarker.join('|'), 'g');
-	}
+  public static parseLines(parts: Array<DocPart>): Array<DocPart> {
+    return parts.map(part => {
+      const found = Array
+        .from(MarkupEngine.LineMarkerFnMap.keys())
+        .find(h => part.kind === DocType.Raw && part.value.startsWith(`${h} `));
 
-	public InlineText(text: string, matches: Array<IndexedMarker>): string {
-		if (matches.length < 2) { return text; }
+      if (!found) { return part; }
+      const strBetween = part.value.substring(found.length + 1);
+      return { value: MarkupEngine.LineMarkerFnMap.get(found)!(strBetween), kind: DocType.Line };
+    });
+  }
 
-		let pos    = 0,
-		    first  = -1,
-		    marker = '',
-		    result = text.substring(0, matches[0].idx);
+  public static unifyRaw(parts: Array<DocPart>): Array<DocPart> {
+    if (parts.length < 2) { return parts; }
 
-		while (pos < matches.length) {
-			let curr = matches[pos];
+    let result: Array<DocPart> = [];
+    result.push(parts.shift()!);
 
-			if (first === -1) {
-				first = curr.idx;
-				marker = curr.marker;
-				pos++;
-				continue;
-			}
+    for (let part of parts) {
+      let last = result[result.length - 1];
+      if (part.kind === DocType.Raw &&
+        last.kind === DocType.Raw) {
+        last.value += `\n${part.value}`;
+      } else {
+        result.push(part);
+      }
+    }
+    return result;
+  }
 
-			if (marker === curr.marker) {
-				let fn = this.inlineH.find(h => h.marker === marker)!.fn;
-				let strBetween = text.substring(first + marker.length, curr.idx);
-				let newMatches = matches.filter(m => m.marker !== marker);
-				newMatches.forEach(m => m.idx = m.idx - first - marker.length);
+  public static ParseInline(parts: Array<DocPart>) {
+    const regex = MarkupEngine.GenRegexFromMarker(...(MarkupEngine.InlineMarkerFnMap.keys()));
+    return parts.map(p => {
+      if (p.kind === DocType.Block) { return p; }
+      const matches = MarkupEngine.getAllMatches(p.value, regex);
+      return { value: MarkupEngine.InlineText(p.value, matches), kind: p.kind };
+    });
+  }
 
-				let recursedStr = this.InlineText(strBetween, newMatches);
-				result += fn(recursedStr);
-				first = -1;
+  public static getAllMatches(text: string, regex: RegExp): Array<IndexedMarker> {
+    return Array.from(text.matchAll(regex), v => ({ marker: v[0], idx: v.index! }));
+  }
 
-				if (pos + 1 !== matches.length) {
-					result += text.substring(curr.idx + marker.length, matches[pos + 1].idx);
-				}
-			}
-			pos++;
-		}
+  public static GenRegexFromMarker(...marker: string[]): RegExp {
+    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping
+    const sanitizedMarker = marker.map(m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    // create single regex by joining the marker
+    return new RegExp(sanitizedMarker.join('|'), 'g');
+  }
 
-		result += text.substring(matches[pos - 1].idx + matches[pos - 1].marker.length);
-		return result;
-	}
+  public static InlineText(text: string, matches: Array<IndexedMarker>): string {
+    if (matches.length < 2) { return text; }
+
+    let pos = 0,
+      first = -1,
+      marker = '',
+      result = text.substring(0, matches[0].idx);
+
+    while (pos < matches.length) {
+      let curr = matches[pos];
+
+      if (first === -1) {
+        first = curr.idx;
+        marker = curr.marker;
+        pos++;
+        continue;
+      }
+
+      if (marker === curr.marker) {
+        let fn = MarkupEngine.InlineMarkerFnMap.get(marker);
+        let strBetween = text.substring(first + marker.length, curr.idx);
+        let newMatches = matches.filter(m => m.marker !== marker);
+        newMatches.forEach(m => m.idx = m.idx - first - marker.length);
+
+        let recursedStr = MarkupEngine.InlineText(strBetween, newMatches);
+        result += fn ? fn(recursedStr) : recursedStr;
+        first = -1;
+
+        if (pos + 1 !== matches.length) {
+          result += text.substring(curr.idx + marker.length, matches[pos + 1].idx);
+        }
+      }
+      pos++;
+    }
+
+    result += text.substring(matches[pos - 1].idx + matches[pos - 1].marker.length);
+    return result;
+  }
 }

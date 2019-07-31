@@ -14,7 +14,7 @@
 		"lib": [
 			"dom",
 			"es2017",
-"es2020.string"
+      "es2020.string"
 		],
 		"outDir": "dist",
 		"target": "esnext",
