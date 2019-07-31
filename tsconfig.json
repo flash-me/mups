@@ -1,0 +1,42 @@
+{
+	"typeAcquisition": {
+		"enable": true
+	},
+	"compilerOptions": {
+		"module": "commonjs",
+		"strict": true,
+		"moduleResolution": "node",
+		"resolveJsonModule": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"baseUrl": ".",
+		"pretty": true,
+		"lib": [
+			"dom",
+			"es2017",
+"es2020.string"
+		],
+		"outDir": "dist",
+		"target": "esnext",
+		"incremental": true,
+		"sourceMap": true,
+		"removeComments": true,
+		"noEmitOnError": true,
+		"noImplicitReturns": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"types": [
+			"node"
+		],
+		"typeRoots": [
+			"./node_modules/@types"
+		]
+	},
+	"files": [
+		"lib/main.ts",
+		"typings.d.ts"
+	],
+	"exclude": [
+		"node_modules"
+	]
+}

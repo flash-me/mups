@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig",
+	"compilerOptions": {
+		"module": "commonjs",
+		"sourceMap": true,
+		"typeRoots": [
+			"../node_modules/@types"
+		],
+		"types": [
+			"node",
+			"jest"
+		]
+	},
+	"include": [
+		"**/*.test.ts"
+	],
+	"exclude": [
+		"../node_modules"
+	]
+}
