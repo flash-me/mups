@@ -1,8 +1,14 @@
 import {MarkupEngine} from './markup.engine';
 
-// MarkupEngine.InlineMarkerFnMap.set('**', (content: string) => `<b>${content}</b>`)
-// MarkupEngine.InlineMarkerFnMap.set('__', (content: string) => `<i>${content}</i>`);
-// MarkupEngine.InlineMarkerFnMap.set('++', (content: string) => `<sup>${content}</sup>`);
+MarkupEngine.InlineMarkerFnMap.set('**', (content: string) => `<b>${content}</b>`)
+MarkupEngine.InlineMarkerFnMap.set('__', (content: string) => `<i>${content}</i>`);
+MarkupEngine.InlineMarkerFnMap.set('++', (content: string) => `<sup>${content}</sup>`);
+
+MarkupEngine.LineMarkerFnMap.set('#', content => `<h1>${content}</h1>`);
+MarkupEngine.LineMarkerFnMap.set('##', content => `<h2>${content}</h2>`);
+MarkupEngine.LineMarkerFnMap.set('###', content => `<h3>${content}</h3>`);
+
+
 
 
 // const mu = `this **++__is__++** markup
@@ -31,6 +37,9 @@ neither this aemka++
 asdlöfkaf
 |||
 test
+# foo
+## dafka
+### aemka
 |||
 |||`
 
@@ -38,4 +47,5 @@ test
 
 // const matches = str.matchAll(regex);
 
-console.log(MarkupEngine.parseBlocksRegex(str, '|||'));
+// console.log(MarkupEngine.ParseBlocks(MarkupEngine.ParseLines(str)));
+console.log(MarkupEngine.PraseInline(str));

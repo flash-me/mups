@@ -17,9 +17,3 @@ export interface InlineTagHandler {
   fn: (params: Array<string>) => string | undefined
 }
 
-export interface IndexedMarker {
-  marker: string
-  idx: number;
-}
-
-export type MarkerFunction = (content: string, param?: string) => string;
