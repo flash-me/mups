@@ -1,137 +1,98 @@
-export interface IndexedMarker {
-	marker: string
-	idx: number;
+export type MarkerFunction = (content: string, param?: string) => string;
+export type DefaultFn = (str: string) => string;
+
+export interface MatchedString {
+	value: string;
+	inner: string;
+	marker: string;
+	index: number;
+	fn: MarkerFunction;
 }
 
-export type MarkerFunction = (content: string, param?: string) => string;
-
 export class MarkupEngine {
-	public static LineMarkerFnMap = new Map<string, MarkerFunction>();
-	public static InlineMarkerFnMap = new Map<string, MarkerFunction>();
-	public static BlockMarker = '|||';
-	public static BlockParamFnMap = new Map<string, MarkerFunction>();
-
-	private static _regex: RegExp;
-
-	public static get Regex(): RegExp {
-		if (!MarkupEngine._regex) {
-			// Create Array from map and sanitize values
-			// See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping
-			const sanitizedMarker: Array<string> = Array.from(
-				MarkupEngine.InlineMarkerFnMap.keys(),
-				m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-			);
-			// create single regex by joining the marker
-			MarkupEngine._regex = new RegExp(sanitizedMarker.join('|'), 'g');
-		}
-		return MarkupEngine._regex;
-	}
+	public static BlockParamFnMap = new Map<any, MarkerFunction>();
+	public static LineMarkerFnMap = new Map<any, MarkerFunction>();
+	public static TagParamFnMap = new Map<any, MarkerFunction>();
+	public static InlineMarkerFnMap = new Map<any, MarkerFunction>();
+	public static BlockMarker = '\\|\\|\\|';
 
 	private constructor() { }
 
-	public static render(fullDoc: string) {
-		return MarkupEngine.ParseBlocks(MarkupEngine.ParseLines(MarkupEngine.PraseInline(MarkupEngine.PraseInline(fullDoc))));
-	}
-
-	public static ParseBlocks(text: string, parseInline: boolean = false) {
-		const escapedMarker = MarkupEngine.BlockMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const regex = new RegExp(`\n${escapedMarker}( .*)?(\n(.|\n)*?)${escapedMarker}`, 'g');
-		const matches = [...text.matchAll(regex)];
-
-		const defaultFn = {get: () => (content: string) => `<code>${content}</code>`};
-
-		return MarkupEngine.ProcessMatches(text, matches, defaultFn as any, parseInline);
-	}
-
-	private static ProcessMatches(text: string, matches: RegExpMatchArray[], fnMap: Map<string, MarkerFunction>, parseInline: boolean = false) {
-		if (matches.length < 1) { return text; }
-
+	private static ProcessMatches(
+		text: string,
+		matches: Array<MatchedString>,
+		matchFn: MarkerFunction    = str => str,
+		nonMatchFn: MarkerFunction = str => str
+	): string {
 		let result  = '',
 		    lastPos = 0;
-
-		for (let i = 0; i < matches.length; i++) {
-			let cur = matches[i];
-			result += text.substring(lastPos, cur.index!);
-			lastPos = cur.index! + cur[0].length;
-			if (cur[2]) {
-				const markerFn = fnMap.get(cur[1]);
-				const strBetween = parseInline ? MarkupEngine.PraseInline(cur[2]) : cur[2];
-				result += markerFn ? markerFn(strBetween) : strBetween;
-				console.log('FOUND block: ', strBetween);
-			}
+		for (let cur of matches) {
+			result += nonMatchFn(text.substring(lastPos, cur.index));
+			lastPos = cur.index + cur.value.length;
+			if (cur.inner) {result += cur.fn(matchFn(cur.inner));}
 		}
-		result += text.substring(lastPos);
+		result += nonMatchFn(text.substring(lastPos));
 		return result;
 	}
 
-	public static ParseLines(text: string, parseInline: boolean = false): string {
-		const sanitizedMarker: Array<string> = Array.from(
-			MarkupEngine.LineMarkerFnMap.keys(),
-			m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-		);
-		const regex = new RegExp(`\n(${sanitizedMarker.join('|')}) (.*)`, 'g');
-		const matches = [...text.matchAll(regex)];
-
-		return MarkupEngine.ProcessMatches(text, matches, MarkupEngine.LineMarkerFnMap, parseInline);
-	}
-
-	public static PraseInline(text: string) {
-		return Array.from(
-			MarkupEngine.InlineMarkerFnMap.keys(),
-			m => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-		).reduce(
-			(p, m) =>
-				MarkupEngine.ProcessMatches(
-					p,
-					[...p.matchAll(new RegExp(`(${m})([\\s\\S]*?)\\1`, 'g'))],
-					MarkupEngine.InlineMarkerFnMap,
-					false
-				),
-			text
+	public static GetBlockParser(): DefaultFn {
+		const blockMarker = MarkupEngine.BlockMarker;
+		const blockRegex = new RegExp(`\n${blockMarker}(?: (.*))?(\n(.|\n)*?)${blockMarker}`, 'g');
+		const inlineParser = MarkupEngine.GetInlineParser();
+		return (text: string) => MarkupEngine.ProcessMatches(
+			text,
+			MarkupEngine.GetMatches(text, blockRegex, MarkupEngine.BlockParamFnMap),
+			str => str,
+			MarkupEngine.GetLineParser(inlineParser)
 		);
 	}
 
-	// public static ParseInline(text: string) {
-	// 	const matches = Array.from(text.matchAll(MarkupEngine.Regex), v => ({marker: v[0], idx: v.index!}));
-	// 	return MarkupEngine.InlineText(text, matches);
-	// }
-	//
-	// public static InlineText(text: string, matches: Array<IndexedMarker>): string {
-	// 	if (matches.length < 2) { return text; }
-	//
-	// 	let pos    = 0,
-	// 	    first  = -1,
-	// 	    marker = '',
-	// 	    result = text.substring(0, matches[0].idx);
-	//
-	// 	while (pos < matches.length) {
-	// 		let curr = matches[pos];
-	//
-	// 		if (first === -1) {
-	// 			first = curr.idx;
-	// 			marker = curr.marker;
-	// 			pos++;
-	// 			continue;
-	// 		}
-	//
-	// 		if (marker === curr.marker) {
-	// 			let markerFn = MarkupEngine.InlineMarkerFnMap.get(marker);
-	// 			let strBetween = text.substring(first + marker.length, curr.idx);
-	// 			let newMatches = matches.filter(m => m.marker !== marker);
-	// 			newMatches.forEach(m => m.idx = m.idx - first - marker.length);
-	//
-	// 			let recursedStr = MarkupEngine.InlineText(strBetween, newMatches);
-	// 			result += markerFn ? markerFn(recursedStr) : recursedStr;
-	// 			first = -1;
-	//
-	// 			if (pos + 1 !== matches.length) {
-	// 				result += text.substring(curr.idx + marker.length, matches[pos + 1].idx);
-	// 			}
-	// 		}
-	// 		pos++;
-	// 	}
-	//
-	// 	result += text.substring(matches[pos - 1].idx + matches[pos - 1].marker.length);
-	// 	return result;
-	// }
+	public static GetLineParser(inlineFn?: DefaultFn): DefaultFn {
+		const lineMarkers = MarkupEngine.SanitizeMap(MarkupEngine.LineMarkerFnMap).join('|');
+		const lineRegex = new RegExp(`\n(${lineMarkers}) (.*)`, 'g');
+		const inlineParser: DefaultFn = inlineFn || MarkupEngine.GetInlineParser();
+		const tagParser = MarkupEngine.GetTagParser(inlineParser);
+		return (text: string) => MarkupEngine.ProcessMatches(
+			text,
+			MarkupEngine.GetMatches(text, lineRegex, MarkupEngine.LineMarkerFnMap),
+			tagParser,
+			tagParser
+		);
+	}
+
+	public static GetTagParser(inlineFn?: DefaultFn): DefaultFn {
+		const tagRegex = new RegExp(`\\[\\[(.*)\\|\\|(.*)]]`);
+		const inlineParser = inlineFn || MarkupEngine.GetInlineParser();
+		return (text: string) => MarkupEngine.ProcessMatches(
+			text,
+			MarkupEngine.GetMatches(text, tagRegex, MarkupEngine.TagParamFnMap),
+			str => str,
+			inlineParser
+		)
+	}
+
+	public static GetInlineParser(): DefaultFn {
+		const inlineMarkers = MarkupEngine.SanitizeMap(MarkupEngine.InlineMarkerFnMap);
+		const inlineRegex = new RegExp(`(${inlineMarkers.join('|')})([\\s\\S]*?)\\1`, 'g');
+		const inlineFn = (text: string) => MarkupEngine.ProcessMatches(
+			text,
+			MarkupEngine.GetMatches(text, inlineRegex, MarkupEngine.InlineMarkerFnMap),
+			inlineFn
+		);
+		return inlineFn;
+	}
+
+	private static SanitizeMap(fnMap: Map<any, MarkerFunction>): Array<string> {
+		return Array.from(fnMap.keys(), value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+	}
+
+	private static GetMatches(text: string, regex: RegExp, fnMap: Map<any, MarkerFunction>): Array<MatchedString> {
+		return [...text.matchAll(regex)].map(match => ({
+			index: match.index!,
+			marker: match[1],
+			inner: match[2],
+			value: match[0],
+			fn: fnMap.get(match[1]) || (str => str)
+		}));
+	}
 }
