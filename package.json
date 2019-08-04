@@ -22,12 +22,14 @@
     "markdown alternative"
   ],
   "dependencies": {
+    "highlight.js": "^9.15.9",
     "typescript": "^3.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.5.0",
     "@babel/preset-env": "^7.5.0",
     "@babel/preset-typescript": "^7.3.3",
+    "@types/highlight.js": "^9.12.3",
     "@types/jest": "^24.0.15",
     "@types/node": "^12.0.12",
     "babel-jest": "^24.8.0",

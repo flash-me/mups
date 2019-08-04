@@ -1,17 +1,18 @@
-import {MarkupEngine} from './markup.engine';
+import {MarkupEngine as ME} from './markup.engine';
+import {AddFn, IncImg, Highlight} from './markup.utils';
 
-MarkupEngine.BlockParamFnMap.set(undefined, content => `\n<code>${content}</code>`);
-MarkupEngine.BlockParamFnMap.set('lang', content => `\n<pre>${content}</pre>`);
+AddFn('blk', undefined, 'code', '\n');
+AddFn('ln', '#', 'h1', '\n');
+AddFn('ln', '##', 'h2', '\n');
+AddFn('ln', '###', 'h3', '\n');
+AddFn('inl', '**', 'b');
+AddFn('inl', '__', 'i');
+AddFn('inl', '++', 'sup');
+AddFn('inl', '--', 'sub');
 
-MarkupEngine.LineMarkerFnMap.set('#', content => `\n<h1>${content}</h1>`);
-MarkupEngine.LineMarkerFnMap.set('##', content => `\n<h2>${content}</h2>`);
-MarkupEngine.LineMarkerFnMap.set('###', content => `\n<h3>${content}</h3>`);
 
-MarkupEngine.TagParamFnMap.set('img', content => `<img src="${content}"/>`);
-
-MarkupEngine.InlineMarkerFnMap.set('**', (content: string) => `<b>${content}</b>`)
-MarkupEngine.InlineMarkerFnMap.set('__', (content: string) => `<i>${content}</i>`);
-MarkupEngine.InlineMarkerFnMap.set('++', (content: string) => `<sup>${content}</sup>`);
+ME.IncFns.set('img', IncImg);
+ME.BlkFns.set('lang', Highlight);
 
 const str =
 `this **++__is__++** markup
@@ -21,8 +22,8 @@ foo
 |||
 ++this __**is** **not** a__ block
 neither this aemka++
-||| lang
-asdlöfkaf
+||| lang ts
+const foo: number = 3;
 |||
 test [[img||orosbuPicture]]
 # foo
@@ -31,4 +32,6 @@ test [[img||orosbuPicture]]
 |||
 |||`;
 
-console.log(MarkupEngine.GetBlockParser()(str));
+const parser = ME.GetBlkParser();
+const result = parser(str);
+console.log(result);

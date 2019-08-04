@@ -10,79 +10,92 @@ export interface MatchedString {
 }
 
 export class MarkupEngine {
-	public static BlockParamFnMap = new Map<any, MarkerFunction>();
-	public static LineMarkerFnMap = new Map<any, MarkerFunction>();
-	public static TagParamFnMap = new Map<any, MarkerFunction>();
-	public static InlineMarkerFnMap = new Map<any, MarkerFunction>();
-	public static BlockMarker = '\\|\\|\\|';
+	public static BlkFns = new Map<any, MarkerFunction>();
+	public static LnFns = new Map<any, MarkerFunction>();
+	public static IncFns = new Map<any, MarkerFunction>();
+	public static InlFns = new Map<any, MarkerFunction>();
+	public static BlkMrkr = '\\|\\|\\|';
+
+	private static DefFn = (str: string) => str;
+
+	private static GetInlRgx = (fnMap: Map<any, MarkerFunction> = MarkupEngine.InlFns) =>
+		new RegExp(`(${MarkupEngine.SanMap(fnMap).join('|')})([\\s\\S]*?)\\1`, 'g');
+
+	private static GetBlkRgx = () =>
+		new RegExp(`\n${MarkupEngine.BlkMrkr}(?: (.*))?(\\n(.|\n)*?)${MarkupEngine.BlkMrkr}`, 'g');
+
+	private static GetLnRgx = (fnMap: Map<any, MarkerFunction> = MarkupEngine.LnFns) =>
+		new RegExp(`\n(${MarkupEngine.SanMap(fnMap).join('|')}) (.*)`, 'g');
 
 	private constructor() { }
 
-	private static ProcessMatches(
+	private static ProcMatches(
 		text: string,
 		matches: Array<MatchedString>,
-		matchFn: MarkerFunction    = str => str,
-		nonMatchFn: MarkerFunction = str => str
+		matchFn: MarkerFunction    = MarkupEngine.DefFn,
+		nonMatchFn: MarkerFunction = MarkupEngine.DefFn
 	): string {
 		let result  = '',
 		    lastPos = 0;
 		for (let cur of matches) {
 			result += nonMatchFn(text.substring(lastPos, cur.index));
 			lastPos = cur.index + cur.value.length;
-			if (cur.inner) {result += cur.fn(matchFn(cur.inner));}
+			if (cur.inner) {result += cur.fn(matchFn(cur.inner), cur.marker);}
 		}
 		result += nonMatchFn(text.substring(lastPos));
 		return result;
 	}
 
-	public static GetBlockParser(): DefaultFn {
-		const blockMarker = MarkupEngine.BlockMarker;
-		const blockRegex = new RegExp(`\n${blockMarker}(?: (.*))?(\n(.|\n)*?)${blockMarker}`, 'g');
-		const inlineParser = MarkupEngine.GetInlineParser();
-		return (text: string) => MarkupEngine.ProcessMatches(
+	public static GetBlkParser = (
+		matchFn: DefaultFn    = MarkupEngine.DefFn,
+		nonMatchFn: DefaultFn = MarkupEngine.GetLnParser(),
+		blkRgx: RegExp    = MarkupEngine.GetBlkRgx()
+	): DefaultFn =>
+		(text: string) => MarkupEngine.ProcMatches(
 			text,
-			MarkupEngine.GetMatches(text, blockRegex, MarkupEngine.BlockParamFnMap),
-			str => str,
-			MarkupEngine.GetLineParser(inlineParser)
+			MarkupEngine.GetMatches(text, blkRgx, MarkupEngine.BlkFns),
+			matchFn,
+			nonMatchFn
 		);
-	}
 
-	public static GetLineParser(inlineFn?: DefaultFn): DefaultFn {
-		const lineMarkers = MarkupEngine.SanitizeMap(MarkupEngine.LineMarkerFnMap).join('|');
-		const lineRegex = new RegExp(`\n(${lineMarkers}) (.*)`, 'g');
-		const inlineParser: DefaultFn = inlineFn || MarkupEngine.GetInlineParser();
-		const tagParser = MarkupEngine.GetTagParser(inlineParser);
-		return (text: string) => MarkupEngine.ProcessMatches(
+	public static GetLnParser = (
+		matchFn: DefaultFn = MarkupEngine.GetIncParser(),
+		nonMatchFn?: DefaultFn,
+		lnRgx: RegExp  = MarkupEngine.GetLnRgx()
+	): DefaultFn =>
+		(text: string) => MarkupEngine.ProcMatches(
 			text,
-			MarkupEngine.GetMatches(text, lineRegex, MarkupEngine.LineMarkerFnMap),
-			tagParser,
-			tagParser
+			MarkupEngine.GetMatches(text, lnRgx, MarkupEngine.LnFns),
+			matchFn,
+			nonMatchFn || matchFn
 		);
-	}
 
-	public static GetTagParser(inlineFn?: DefaultFn): DefaultFn {
-		const tagRegex = new RegExp(`\\[\\[(.*)\\|\\|(.*)]]`);
-		const inlineParser = inlineFn || MarkupEngine.GetInlineParser();
-		return (text: string) => MarkupEngine.ProcessMatches(
+	public static GetIncParser = (
+		matchFn: DefaultFn    = MarkupEngine.DefFn,
+		nonMatchFn: DefaultFn = MarkupEngine.GetInlParser()
+	): DefaultFn =>
+		(text: string) => MarkupEngine.ProcMatches(
 			text,
-			MarkupEngine.GetMatches(text, tagRegex, MarkupEngine.TagParamFnMap),
-			str => str,
-			inlineParser
-		)
-	}
-
-	public static GetInlineParser(): DefaultFn {
-		const inlineMarkers = MarkupEngine.SanitizeMap(MarkupEngine.InlineMarkerFnMap);
-		const inlineRegex = new RegExp(`(${inlineMarkers.join('|')})([\\s\\S]*?)\\1`, 'g');
-		const inlineFn = (text: string) => MarkupEngine.ProcessMatches(
-			text,
-			MarkupEngine.GetMatches(text, inlineRegex, MarkupEngine.InlineMarkerFnMap),
-			inlineFn
+			MarkupEngine.GetMatches(text, new RegExp(`\\[\\[(.*)\\|\\|(.*)]]`), MarkupEngine.IncFns),
+			matchFn,
+			nonMatchFn
 		);
-		return inlineFn;
-	}
 
-	private static SanitizeMap(fnMap: Map<any, MarkerFunction>): Array<string> {
+	public static GetInlParser = (
+		matchFn?: DefaultFn,
+		nonMatchFn: DefaultFn = MarkupEngine.DefFn,
+		inlRgx: RegExp   = MarkupEngine.GetInlRgx()
+	): DefaultFn =>
+		function inlineFn(text: string) {
+			return MarkupEngine.ProcMatches(
+				text,
+				MarkupEngine.GetMatches(text, inlRgx, MarkupEngine.InlFns),
+				matchFn || inlineFn,
+				nonMatchFn
+			);
+		};
+
+	private static SanMap(fnMap: Map<any, MarkerFunction>): Array<string> {
 		return Array.from(fnMap.keys(), value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 	}
 
@@ -92,7 +105,7 @@ export class MarkupEngine {
 			marker: match[1],
 			inner: match[2],
 			value: match[0],
-			fn: fnMap.get(match[1]) || (str => str)
+			fn: fnMap.get((match[1] || '').split(' ')[0]) || (str => str)
 		}));
 	}
 }
