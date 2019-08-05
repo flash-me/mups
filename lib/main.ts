@@ -1,7 +1,7 @@
 import {MarkupEngine as ME} from './markup.engine';
 import {AddFn, IncImg, Highlight} from './markup.utils';
 
-AddFn('blk', undefined, 'code', '\n');
+AddFn('blk', '', 'code', '\n');
 AddFn('ln', '#', 'h1', '\n');
 AddFn('ln', '##', 'h2', '\n');
 AddFn('ln', '###', 'h3', '\n');

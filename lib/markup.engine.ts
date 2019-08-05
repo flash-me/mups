@@ -22,7 +22,7 @@ export class MarkupEngine {
 		new RegExp(`(${MarkupEngine.SanMap(fnMap).join('|')})([\\s\\S]*?)\\1`, 'g');
 
 	private static GetBlkRgx = () =>
-		new RegExp(`\n${MarkupEngine.BlkMrkr}(?: (.*))?(\\n(.|\n)*?)${MarkupEngine.BlkMrkr}`, 'g');
+		new RegExp(`\n${MarkupEngine.BlkMrkr}(?: (.*))?\n((.|\n)*?)\n?${MarkupEngine.BlkMrkr}`, 'g');
 
 	private static GetLnRgx = (fnMap: Map<any, MarkerFunction> = MarkupEngine.LnFns) =>
 		new RegExp(`\n(${MarkupEngine.SanMap(fnMap).join('|')}) (.*)`, 'g');

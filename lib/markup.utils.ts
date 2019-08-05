@@ -33,9 +33,9 @@ export const IncImg = (content: string) => `<img src="${content}"/>`;
 export const Highlight = (content: string, lang?: string) => {
 	if (lang && hljs.getLanguage(lang.split(' ')[1])) {
 		try {
-			console.log('Found language: ', lang.split(' ')[1]);
-			return hljs.highlight(lang.split(' ')[1], `${content}`).value;
+      const value = hljs.highlight(lang.split(' ')[1], `${content}`).value;
+      return `\n${value}`;
 		} catch (e) { return `[[HIGHLIGHT.JS ERROR. ${e}`}
 	}
-	return `${content}`;
+	return `\n${content}`;
 };
