@@ -1,4 +1,4 @@
-# <div align='center'>Doctrine</div>
+# <div align='center'>Mark-Up-Parsing-Engine</div>
 ## <div align='center'>A highly customizable markup parser</div>
 
 ### **Another parser? Why just not use markdown?**
