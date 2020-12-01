@@ -10,7 +10,7 @@ This might a valid question at first. But didn't you ever found yourself botheri
 
 If you recognise any of these situations or if you are just curious about the capabilities of this parser, please continue!
 
-### **What is so special about doctrine?**
+### **What is so special about mups?**
 
 - Well, the actual core part, `the parsing engine` is written in under 150 lines!<br>
 - It is written in `TypeScript`!
@@ -27,7 +27,7 @@ For the **Marker** we want use `$$` and the content should be transformed to a d
  ```ts
  (content: string) => `<div class='myCustomClass'>${content}</div>`
  ```
- And thats it! Now when you are going to use `$$` in your document, `Doctrine` will catch the marker and transform the content:
+ And thats it! Now when you are going to use `$$` in your document, `mups` will catch the marker and transform the content:
  ```
  This is not just another $$markdown$$ parser.
 
