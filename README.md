@@ -35,7 +35,3 @@ For the **Marker** we want use `$$` and the content should be transformed to a d
 
  This is not just another <div class'myCustomClass'>markdown</div>
  ```
-
-### **What is the magic behind?**
-
-Doctrine
