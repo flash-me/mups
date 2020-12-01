@@ -22,7 +22,7 @@
     "markdown alternative"
   ],
   "dependencies": {
-    "highlight.js": "^9.15.9",
+    "highlight.js": "^10.1.2",
     "typescript": "^3.5.2"
   },
   "devDependencies": {
